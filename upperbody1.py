@@ -12,12 +12,12 @@ loglevel=logging.INFO
 description="Kettle bell upper body exercises, level 1"
 
 exercises=(("Clean to right shoulder", None, None),
-	("Clean to left shoulder", None, None),
-	("Right arm overhead press (no crouch)", None, None),
-	("Left arm overhead press (no crouch)", None, None),
-	("Right arm overhead extension with opposite lunge", None, None),
-	("Left arm overhead extension with opposite lunge", None, None),
-	("Kettle bell swing", None, 0))
+        ("Clean to left shoulder", None, None),
+        ("Right arm overhead press (no crouch)", None, None),
+        ("Left arm overhead press (no crouch)", None, None),
+        ("Right arm overhead extension with opposite lunge", None, None),
+        ("Left arm overhead extension with opposite lunge", None, None),
+        ("Kettle bell swing", None, 0))
 
 # Exercise 1: Clean to right shoulder
 # Start in a standing crouch with the kettle bell suspended between the legs
@@ -60,15 +60,16 @@ exercise_objects=[]
 duration=0
 
 for e in exercises:
-	length=e[1]
-	rest=e[2]
-	if length == None:
-		length=standard_length
-	if rest == None:
-		rest=standard_rest
-	ex=exercise.Exercise(e[0], length, rest, loglevel=loglevel)
-	exercise_objects.append(ex)
-	duration+=length+rest+ex.read_delay
+        length=e[1]
+        rest=e[2]
+        if length == None:
+                length=standard_length
+        if rest == None:
+                rest=standard_rest
+        ex=exercise.Exercise(e[0], loglevel=loglevel)
+        ex.prep(length,rest)
+        exercise_objects.append(ex)
+        duration+=length+rest+ex.read_delay
 
 duration_string=str(int(duration/60))+"'{0:02d}\"".format(duration%60)
 
@@ -77,4 +78,4 @@ print("*",description,"("+duration_string+")")
 print("*"*70)
 
 for e in exercise_objects:
-	e.start()
+        e.start()
