@@ -1,0 +1,14 @@
+# Settings
+Read_delay=5
+Rest=10
+Name=Upper body exercises level 2
+Description=Exercises focusing on the arms and core muscles, but introducing the leg muscles now too
+# The routine's exercises
+# Format: exercise_id,duration,[rest_period,[read_delay]]
+kettle_clean_right,60
+kettle_clean_left,60
+kettle_press_right,60
+kettle_press_left,60
+kettle_lunge_right,60
+kettle_lunge_left,60
+kettle_swing,60,0

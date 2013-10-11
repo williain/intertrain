@@ -1,8 +1,10 @@
-import countdown
-import time, logging, subprocess, sys
+#!/usr/bin/python3
+
+import countdown,exceptions
+import time, logging, subprocess, sys, unittest
 
 class Exercise(object):
-    def __init__(self, name, desc="", tips=[], loglevel=logging.DEBUG):
+    def __init__(self, name, desc="", tips=[]):
         """Create a named exercise object"""
         self.lastsound=None
 
@@ -12,8 +14,7 @@ class Exercise(object):
             # Ensure tips is a list
             tips=[str(tips)]
         self.tips=tips
-        self.messagelogger=logging.getLogger('exerciseMessages')
-        self.messagelogger.setLevel(loglevel)
+        self.messagelogger=logging.getLogger('exercise')
 
     def prep(self, duration, rest=5, read_delay=5):
         """Set the exercise durations.  Arguments:
@@ -24,16 +25,28 @@ class Exercise(object):
         Throws: Exception for invalid input
         """
         if duration<0:
-            raise Exception("Not a time traveller: Can't exercise for "+repr(duration)+" second(s)")
+            raise exceptions.ParseError(
+              "Not a time traveller: Can't exercise for {0} second(s)".
+              format(repr(duration))
+            )
         if rest<0:
-            raise Exception("Not a time traveller: Can't rest for "+repr(rest)+" second(s)")
+            raise exceptions.ParseError(
+              "Not a time traveller: Can't rest for {0} second(s)".
+              format(repr(rest))
+            )
         if read_delay<0:
-            raise Exception("Not a time traveller: Can't let the user read for "+repr(read_delay)+" second(s)")
+            raise exceptions.ParseError(
+              "Not a time traveller: Can't let the user read for {0} second(s)".
+              format(repr(read_delay))
+            )
         self.reading=countdown.Countdown(read_delay, self.session_start)
         self.countdown=countdown.Countdown(duration, self.finish, self.tick)
         self.duration=duration
         self.rest=rest
         self.read_delay=read_delay
+
+    def get_total_duration(self):
+        return self.read_delay+self.duration+self.rest
 
     def start(self):
         """Run the exercise
@@ -41,8 +54,10 @@ class Exercise(object):
         Throws: Exception is not already prepared
         """
 
-        if not self.duration:
-            raise Exception("Can't start an exercise without first preparing it")
+        if not hasattr(self,'duration'):
+            raise exceptions.ProtocolError(
+              "Can't start an exercise without first preparing it"
+            )
 
         self.messagelogger.info("Exercise: "+self.name+", for "+str(self.duration)+"s")
         self.messagelogger.info("Get ready...")
@@ -95,105 +110,151 @@ class Exercise(object):
     def __del__(self):
         self.__clear_sound()
 
-def Test():
-    # Test default arguments
-    exercise=Exercise("TEST_DEFAULT")
-    exercise.prep(6)
-    time_start=time.time()
-    exercise.start()
-    duration=time.time()-time_start
-    if abs(duration-16)<0.2:
-        print("TEST_DEFAULT OK: Expected duration of 16, got",duration)
-    else:
-        print("TEST_DEFAULT FAIL: Expected duration of 16, got",duration)
-    del exercise
+class TestExercise(unittest.TestCase):
+    time=0
+
+    class MockCountdown(countdown.Countdown):
+        def start(self):
+            # Don't actually countdown - just add the time
+            TestExercise.time+=self.duration
+            self.func_finish()
+
+    class QuietExercise(Exercise):
+        # A nasty hack to override a private method...
+        def _Exercise__play_sound(self, soundfile):
+            # Shut up!
+            pass
+
+    class MockExercise(QuietExercise):
+        def start(self):
+            TestExercise.time=0
+            # Fake the countdown timers to run this exercise really quickly
+            self.reading=TestExercise.MockCountdown(
+              self.reading.duration, self.reading.func_finish
+            )
+            self.countdown=TestExercise.MockCountdown(
+              self.countdown.duration,
+              self.countdown.func_finish,
+              self.countdown.func_tick
+            )
+            super().start()
+
+        def finish(self):
+            TestExercise.time+=self.rest
+            
+    def setUp(self):
+        self.mock=True
+        #self.mock=False
+        self.quiet=True
+        #self.quiet=False
+
+    def test_init_args(self):
+        exercise=Exercise("TEST_ARGS_POS", "desc", "tips")
+        self.assertEqual(exercise.desc,"desc")
+        self.assertEqual(exercise.tips,["tips"])
+        del exercise
+
+        exercise=Exercise("TEST_ARGS_ALTPOS", tips="tips", desc="desc")
+        self.assertEqual(exercise.desc,"desc")
+        self.assertEqual(exercise.tips,["tips"])
+        del exercise
+
+        exercise=Exercise("TEST_TIPS", "desc", ["tip1", "tip2"])
+        self.assertEqual(exercise.tips,["tip1","tip2"])
+
+    def test_prep_bad(self):
+        exercise=Exercise("TEST_PREP_BAD")
+        self.assertRaisesRegexp(exceptions.ProtocolError,"without first prep",
+          exercise.start
+        )
+        del exercise
+
+        exercise=Exercise("TEST_PREP_BADDUR")
+        self.assertRaisesRegexp(exceptions.ParseError,"[Cc]an't exercise for",
+          exercise.prep,-1
+        )
+        del exercise
+
+        exercise=Exercise("TEST_PREP_BADREST")
+        self.assertRaisesRegexp(exceptions.ParseError,"[Cc]an't rest for",
+          exercise.prep,10, -2
+        )
+        del exercise
+
+        exercise=Exercise("TEST_PREP_BADDELAY")
+        self.assertRaisesRegexp(exceptions.ParseError,"[Cc]an't .*read for",
+          exercise.prep,10, read_delay=-3
+        )
+        del exercise
+
+    def test_prep(self):
+        exercise=Exercise("TEST_PREP_DEFAULT")
+        exercise.prep(2)
+        self.assertEquals(exercise.duration,2)
+        self.assertEquals(exercise.rest,5)
+        self.assertEquals(exercise.read_delay,5)
+        exercise=Exercise("TEST_PREP_OVERRIDE")
+        exercise.prep(3,2,1)
+        self.assertEquals(exercise.duration,3)
+        self.assertEquals(exercise.rest,2)
+        self.assertEquals(exercise.read_delay,1)
+
+    def test_start(self):
+        # Test default arguments
+        exercise=self.__test_exercise("TEST_START_DEFAULT")
+        exercise.prep(1)
+        duration=self.__timed_run(exercise)
+        self.__assert_time(duration, 11)
+        del exercise
     
-    # Test overriding defaults
-    exercise=Exercise("TEST_OVERRIDE1")
-    exercise.prep(15, 2, read_delay=0)
-    time_start=time.time()
-    exercise.start()
-    duration=time.time()-time_start
-    if abs(duration-17)<0.2:
-        print("TEST_OVERRIDE1 OK: Expected duration of 17, got",duration)
-    else:
-        print("TEST_OVERRIDE1 FAIL: Expected duration of 17, got",duration)
-    del exercise
+    def test_start_override(self):
+        # Test overriding defaults
+        exercise=self.__test_exercise("TEST_OVERRIDE1")
+        exercise.prep(4, 1, 0)
+        duration=self.__timed_run(exercise)
+        self.__assert_time(duration,5)
+        del exercise
 
-    exercise=Exercise("TEST_OVERRIDE2")
-    exercise.prep(5, 0, read_delay=3)
-    time_start=time.time()
-    exercise.start()
-    duration=time.time()-time_start
-    if abs(duration-8)<0.2:
-        print("TEST_OVERRIDE2 OK: Expected duration of 8, got",duration)
-    else:
-        print("TEST_OVERRIDE2 FAIL: Expected duration of 8, got",duration)
-    del exercise
+        exercise=self.__test_exercise("TEST_OVERRIDE2")
+        exercise.prep(2, 0, read_delay=2)
+        duration=self.__timed_run(exercise)
+        self.__assert_time(duration,4)
+        del exercise
 
-    #==================================
-    # Test desc and tips argments
+    def __test_exercise(self,name):
+        if self.mock:
+            exercise=TestExercise.MockExercise(name)
+        elif self.quiet:
+            exercise=TestExercise.QuietExercise(name)
+        else:
+            exercise=Exercise(name)
+        return exercise
 
-    # Test positional arguments
-    exercise=Exercise("TEST_ARGS_POS", "desc", "tips")
-    if exercise.desc!="desc":
-        print("TEST_ARGS_POS FAIL: Expected description of 'desc', got",str(exercise.desc))
-    elif not (len(exercise.tips)==1 and exercise.tips[0]=="tips"):
-        print("TEST_ARGS_POS_FAIL: Expected tips of ['tips'], got",str(exercise.tips))
-    else:
-        print("TEST_ARGS_POS OK")
-    del exercise
-
-    exercise=Exercise("TEST_ARGS_ALTPOS", tips="tips", desc="desc")
-    if exercise.desc!="desc":
-        print("TEST_ARGS_ALTPOS FAIL: Expected description of 'desc', got",str(exercise.desc))
-    elif not exercise.tips==["tips"]:
-        print("TEST_ARGS_ALTPOS_FAIL: Expected tips of ['tips'], got",str(exercise.tips))
-    else:
-        print("TEST_ARGS_ALTPOS OK")
-    del exercise
-
-    exercise=Exercise("TEST_TIPS", "desc", ["tip1", "tip2"])
-    if exercise.tips==["tip1","tip2"]:
-        print("TEST_TIPS OK")
-    else:
-        print("TEST_TIPS FAIL: Expected tips of ['tip1','tip2'], got",str(exercise.tips))
-
-    #==================================
-    # Test bad arguments
-    #TODO: Check exception message/make exception types (TBD)
-    exercise=Exercise("TEST_BADPREP")
-    try:
+    def __timed_run(self,exercise):
+        time_start=time.time()
         exercise.start()
-        print("TEST_BADPREP FAIL: Expected exception for not prepping")
-    except Exception as e:
-        print("TEST_BADPREP OK: Got exception",str(e))
-    finally:
-        del exercise
+        duration=time.time()-time_start
+        if self.mock:
+            duration=TestExercise.time
+        return duration
 
-    try:
-        exercise=Exercise("TEST_BADDUR")
-        exercise.prep(-1)
-        print("TEST_BADDUR FAIL: Expected expected for negative duration")
-    except Exception as e:
-        print("TEST_BADDUR OK: Got exception",str(e))
-    finally:
-        del exercise
+    def __assert_time(self,time,expected_time):
+        if self.mock:
+            self.assertEqual(time,expected_time)
+        else:
+            self.assertLess(abs(time-expected_time),0.2)
 
-    try:
-        exercise=Exercise("TEST_BADREST")
-        exercise.prep(10, -2)
-        print("TEST_BADREST FAIL: Expected exception for negative rest period")
-    except Exception as e:
-        print("TEST_BADREST OK: Got exception",str(e))
-    finally:
+    def test_get_total_duration(self):
+        exercise=self.__test_exercise("TEST_TOTAL_DUR")
+        exercise.prep(86)
+        self.assertEqual(exercise.get_total_duration(),96)
         del exercise
+        exercise=self.__test_exercise("TEST_TOTAL_DUR_OVERRIDE")
+        exercise.prep(35,rest=32,read_delay=53)
+        self.assertEqual(exercise.get_total_duration(),120)
 
-    try:
-        exercise=Exercise("TEST_BADDELAY")
-        exercise.prep(10, read_delay=-3)
-        print("TEST_BADDELAY FAIL: Expected exception for negative read delay")
-    except Exception as e:
-        print("TEST_BADDELAY OK: Got exception",str(e))
-    finally:
-        del exercise
+if __name__=='__main__':
+    logging.basicConfig(format='.')
+    logging.getLogger('countdown').setLevel(logging.ERROR)
+    logging.getLogger('exercise').setLevel(logging.ERROR)
+    unittest.main()

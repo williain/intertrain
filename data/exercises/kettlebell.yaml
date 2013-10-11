@@ -1,0 +1,55 @@
+%YAML 1.1
+---
+kettle_swing:
+    Name: Kettlebell swing
+    Description: With the legs apart and the kettlebell suspended in both hands, crouching slightly, stand as it pushes back against your thighs so it swings up in front of you, keeping your arms locked, peaking level with your shoulders.
+    Tips:
+        ["Keep your back straight as you crouch for this exercise, crouching with your legs so you get the maximum power from your thighs to swing the kettlebell up.",
+        "You'll probably find it easier to start with the kettlebell on the floor half a pace in front of you.  Crouch down and grab it to start, letting it fall back between your legs.  When repeating the exercise let it swing back to this half-crouched back between the legs position.",
+        "This is a core exercise, not an arm exercise.  Your arm muscles should not be used to swing the kettlebell relying on the power from your legs and back to bring the kettlebell up the shoulder height",
+        "You will need to adjust the rate at which you stand up to control how high the kettlebell peaks, to try to make it acheieve a level where your arms are straight out in front of you."]
+
+
+kettle_clean_right:
+    Name: Kettlebell clean to right shoulder
+    Description:
+        &desc_clean
+        Start in a half crouch with the kettlebell suspended between the legs.  Lift the kettlebell to the shoulder as you stand and breathe in, and return it to the starting position as you breathe out.
+    Tips:
+        &tips_clean
+        ["It's simpler to start with the kettle bell on the floor ahead of you. Crouch down and grab it and swing it back between your legs as you start to stand up, so that it swings forward as you stand and you can pull your arm in to bring it to your shoulder.",
+        Your forearm should hit your thigh as you swing the kettlebell back between the legs at the start and end of the exercise.,
+        "Try to keep your back straight throught this exercise.  Crouch using the legs only, and feel your back muscles resisting the weight as you swing it up to your shoulder in front of you."]
+
+kettle_clean_left:
+    Name: Kettlebell clean to left shoulder
+    Description: *desc_clean
+    Tips: *tips_clean
+
+kettle_press_right:
+    Name: Kettlebell right press
+    Description:
+        &desc_extension
+        From a standing position with the kettlebell at the shoulder, simply raise the kettlebell until your arm is fully extended and the kettlebell is suspended above the head.
+    Tips:
+        &tips_extension
+        ["It helps to hold the kettlebell handle at its corner, assuming a standard wide kettlebell handle.  This suspends the kettlebell at an angle which should let you rest it over your shoulder at the lower end of the extension.",
+        Your arm may brush your ear at you reach the top of the extension.  Learn what this feel likes when practicing in a mirror so you can judge how to hold it over your head when exercising without a mirror.]
+
+kettle_press_left:
+    Name: Kettlebell left press
+    Description: *desc_extension
+    Tips: *tips_extension
+
+kettle_lunge_right:
+    Name: Right arm overhead kettlebell with opposite leg lunge
+    Description: With the kettlebell suspended over your head in your right hand (fully extended), step forward with your left leg.  Step back and repeat.
+    Tips:
+        &tips_lunge
+        ["When stepping forward, aim to get your forward thigh as close to horizontal as possible.  This stresses the leg muscles correctly.",
+        "When stepping back, it's mainly about balance.  Returning the leg to the correct support position first time, and using the stomach muscles and arm to stop the suspended kettle bell from falling backwards."]
+
+kettle_lunge_left:
+    Name: Left arm overhead kettlebell with opposite leg lunge
+    Description: With the kettlebell suspended over your head in the left hand (fully extended), step forward with your right leg.  Step back and repeat.
+    Tips: *tips_lunge
