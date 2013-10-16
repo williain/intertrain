@@ -1,2 +1,4 @@
-find lib/ -iname \*.py -exec python3 {} -v \;
-python3 test.py
+#find lib/ -iname \*.py -exec python3 {} -v \;
+for script in lib/*.py; do
+    python3 $script
+done

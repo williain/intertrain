@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 import time, os, logging
 
 class AbortCountdownException(Exception):
@@ -79,3 +81,6 @@ def Test():
 		print("TEST4 FAIL: Expected duration of 2, got",duration)
 	else:
 		print("TEST4 OK: Expected duration of 2, got",duration)
+
+if __name__=="__main__":
+    Test()

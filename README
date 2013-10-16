@@ -1,0 +1,17 @@
+At this early stage of development there's only one usable executable -
+upperbody1.py, a slightly misnamed script that runs a set of kettle bell
+exercises mainly focussing on the arms and core.
+
+Coming soon will be a far more extensible and configurable version that
+will come with more than one set of exercises, and be more easily configured
+to run any choice of exercises you'd like to do.
+
+Root---README        - This file
+     |-COPYING       - License
+     |-upperbody1.py - Early alpha exercise entry point
+     |-test          - Shell script to run all test code
+     |-lib           - Python packages used by the entry script(s)
+     |  \plat        - Platform specific packages - see here if running on
+     |                   a new OS.
+     |-data          - The data files used to configure the upcoming version
+     `-sounds        - Bleeps and bloops

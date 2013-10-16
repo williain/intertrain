@@ -1,10 +1,34 @@
 #!/usr/bin/python3
-import io,unittest
+import io, unittest, collections
 import guide, exceptions
 
 class Routine(object):
     """An exercise routine - a list of Exercises that have been prepped with
     the appropriate durations, so that they can be run in series."""
+
+    class Defaults(object):
+        desc={
+          'rest':'rest period',
+          'read_delay':'read delay',
+          'name':'name',
+          'description':'description'
+        }
+
+        def __init__(self):
+            self.settings={}
+            for setting in self.desc:
+                self.settings[setting]=None
+
+        def get_description(self, setting):
+            return self.desc[setting]
+
+        def set(self,setting, value):
+            self.desc[setting] # Check the setting name is valid
+            self.settings[setting]=value
+
+        def get(self,setting):
+            return self.settings[setting]
+            
     def __init__(self,rest=None,read_delay=None,guidebook=None):
         """
         Create an exercise routine.
@@ -25,55 +49,28 @@ class Routine(object):
             If not specified, this class creates its own GuideBook, which you
             can get using get_guidebook and add guides to after the fact.
         """
-        self.rest=rest
-        self.read_delay=read_delay
+        self.defaults=Routine.Defaults()
+        self.defaults.set("rest",rest)
+        self.defaults.set("read_delay",read_delay)
         self.exercises=[]
         if guidebook==None:
             self.guidebook=guide.GuideBook()
 
-    def set_default_rest(self, rest):
+    def set_default(self, setting, value_str):
         """
-        Raises ParseError if rest isn't a string representing an integer
+        Raises ParseError if value_str isn't a string representing an integer
         """
         try:
-            self.rest=self.__to_int(rest)
-        except exceptions.ParseError as e:
+            if setting=="rest" or setting=="read_delay":
+                self.defaults.set(setting, self.__to_int(value_str))
+            else:
+                self.defaults.set(setting, value_str)
+        except (KeyError,exceptions.ParseError) as e:
             raise exceptions.ParseError(
-              "{0} is not a valid rest period:\n{1}".format(
-                repr(rest),e.indented_message()
+              "{0} is not a valid {1}:\n{2}".format(
+                repr(value_str),self.defaults.get_description(setting),e.indented_message()
               )
             )
-
-    def set_default_read_delay(self, read_delay):
-        """
-        Raises ParseError if read_delay isn't a string representing an integer
-        """
-        try:
-            self.read_delay=self.__to_int(read_delay)
-        except exceptions.ParseError as e:
-            raise exceptions.ParseError(
-              "{0} is not a valid read delay:\n{1}".format(
-                repr(read_delay),e.indented_message()
-              )
-            )
-
-    def __to_int(self, string):
-        """
-        Either returns the string as an integer, or raises ParseError
-        """
-        try:
-            a=int(string,base=10)
-        except (TypeError, ValueError):
-            raise exceptions.ParseError(
-              "{0} is not a valid integer".format(repr(string))
-            )
-        return a
-
-    def set_name(self, name):
-        self.name=name
-
-    def set_description(self, desc):
-        self.description=desc
 
     def get_guidebook(self):
         """Return the live guidebook - please handle with care"""
@@ -97,17 +94,17 @@ class Routine(object):
         """
         ex=self.get_guidebook().get_exercise(ex_id)
         if rest==None:
-            rest=self.rest
+            rest=self.defaults.get('rest')
+            if rest==None:
+                raise exceptions.DefaultError(
+                  "If a default rest period hasn't been set, you must supply an explicit one"
+                )
         if read_delay==None:
-            read_delay=self.read_delay
-        if rest==None:
-            raise exceptions.DefaultError(
-              "If a default rest period hasn't been set, you must supply an explicit one"
-            )
-        if read_delay==None:
-            raise exceptions.DefaultError(
-              "If a default read_delay hasn't been set, you must supply an explicit one"
-            )
+            read_delay=self.defaults.get('read_delay')
+            if read_delay==None:
+                raise exceptions.DefaultError(
+                  "If a default read_delay hasn't been set, you must supply an explicit one"
+                )
         ex.prep(duration, rest, read_delay)
         self.exercises.append(ex)
 
@@ -117,69 +114,116 @@ class Routine(object):
         """
         self.load_io(io.open(filename))
 
+    def __to_int(self, string):
+        """
+        Either returns the string as an integer, or raises ParseError
+        """
+        try:
+            a=int(string,base=10)
+        except (TypeError, ValueError):
+            raise exceptions.ParseError(
+              "{0} is not a valid integer".format(repr(string))
+            )
+        return a
+
+
+    def __wrap_to_int(self, string, meaning):
+        """
+        Either returns the string as an integer, or raises ParserError
+        using 'meaning' as part of the message
+        """
+        try:
+            return self.__to_int(string)
+        except exceptions.ParseError as e:
+            raise exceptions.ParseError(
+              "{0} is not a valid {1}:\n{2}".format(
+                repr(string),meaning,e.indented_message()
+              )
+            )
+           
+    def __unescape(self,text,char):
+        escaped=False
+        textout=""
+        for c in text:
+            if c=='\\' and not escaped:
+                escaped=True
+            elif c==char and not escaped:
+                textout+='\x0b' # Unprintable bell
+            else:
+                textout+=c
+        return textout
+
     def load_io(self,file_io):
         """Load a specification from a definition in stream io"""
+        in_setting=False
         for line in file_io.readlines():
             # Eat the indent - not important to this file format
             line=line.strip()
             if len(line)==0:
+                if in_setting:
+                    # Ended a multi-line setting
+                    in_setting=False
+                    try:
+                        self.set_default(setting,value)
+                    except exceptions.ParseError:
+                        raise exceptions.ParseError(
+                          "Unrecognised setting '{0}'\n  Line:{1}".format(
+                          setting,line)
+                        )
                 continue
             if line[0]=="#":
                 # Comment
                 continue
-            if '=' in line:
-                # Setting
-                (setting,value)=line.split('=')
-                setting=setting.lower().strip()
-                try:
-                    if setting=="rest":
-                        self.set_default_rest(value)
-                    elif setting=="read_delay":
-                        self.set_default_read_delay(value)
-                    elif setting=="name":
-                        self.set_name(value)
-                    elif setting=="description":
-                        self.set_description(value)
-                    else:
+            if in_setting:
+                if len(value)>0:
+                    value+=' '
+                value+=line
+                continue
+            setline=self.__unescape(line,'=')
+            if '\x0b' in setline:
+                if setline.endswith('\x0b'):
+                    # Multi-line setting
+                    setting=setline[:setline.index('\x0b')]
+                    try:
+                        self.defaults.get_description(setting)
+                    except exceptions.ParseError:
                         raise exceptions.ParseError(
-                          "Unrecognised setting '{0}'".
-                          format(setting)
+                          "Unrecognised setting '{0}'\n  Line:{1}".format(
+                            setting, line
+                          )
                         )
-                except exceptions.ParseError as e:
-                    raise exceptions.ParseError(str(e)+"\n  Line: "+line)
-
-            elif ',' in line:
+                    in_setting=True
+                    value=""
+                else:
+                    # Single line setting
+                    (setting,value)=setline.split('\x0b')
+                    setting=setting.lower().strip()
+                    try:
+                        self.set_default(setting,value)
+                    except KeyError:
+                        raise exceptions.ParseError(
+                          "Unrecognised setting '{0}'\n  Line:{1}".format(
+                            setting,line
+                          )
+                        )
+                continue
+            exline=self.__unescape(line,',')
+            if '\x0b' in exline:
                 # Exercise
-                (args)=line.split(',')
+                (args)=exline.split('\x0b')
                 ex_id=args[0]
-                try:
-                    duration=self.__to_int(args[1])
-                except exceptions.ParseError as e:
-                    raise exceptions.ParseError(
-                      "{0} is not a valid duration:\n{1}".format(
-                          repr(args[1]),e.indented_message()
-                      )
-                    )
+                duration=self.__wrap_to_int(args[1],'duration')
                 rest=None
                 read_delay=None
                 if len(args)>=3:
-                    try:
-                        rest=self.__to_int(args[2])
-                    except exceptions.ParseError as e:
-                        raise exceptions.ParseError(
-                          "{0} is not a valid rest period:\n{1}".format(
-                            repr(args[2]),e.indented_message()
-                          )
-                        )
+                    rest=self.__wrap_to_int(args[2],'rest period')
                 if len(args)==4:
-                    try:
-                        read_delay=self.__to_int(args[3])
-                    except exceptions.ParseError as e:
-                        raise exceptions.ParseError(
-                          "{0} is not a valid read delay:\n  {1}".format(
-                            repr(args[3]),e.indented_message()
-                          )
-                        )
+                    read_delay=self.__wrap_to_int(args[3],'read delay')
+                elif len(args)>4:
+                    raise exceptions.ParseError(
+                      "Unrecognised exercise in routine file ({0}):\n  {1}".
+                        format('too many commas',line)
+                    )
                 self.add_exercise(ex_id,duration,rest,read_delay)
             else:
                 raise exceptions.ParseError(
@@ -213,10 +257,13 @@ class TestRoutine(unittest.TestCase):
         self.assertEquals(exs[0].duration,5)
         self.assertEquals(exs[1].rest,7)
         self.assertEquals(exs[1].read_delay,10)
-        self.assertEquals(r.name,"Test routine")
-        self.assertEquals(r.description,"Test description")
+        self.assertEquals(r.defaults.get('name'),"Test routine")
+        self.assertEquals(r.defaults.get('description'),"Test description")
         r=self.__make_routine("""
-            name=Test explicit
+            name=
+              Multiline
+              name
+
             # Don't need a description (or a name, even)
             # Test that you can omit rest and read_delay settings if you specify them for each exercise 
             exercise1,5,2,8
@@ -225,7 +272,7 @@ class TestRoutine(unittest.TestCase):
         )
         self.assertEquals(r.exercises[0].read_delay,8)
         self.assertEquals(r.exercises[1].rest,3)
-        self.assertEquals(r.name,"Test explicit")
+        self.assertEquals(r.defaults.get('name'),"Multiline name")
 
     def test_get_guidebook(self):
         r=Routine()
@@ -315,6 +362,14 @@ class TestRoutine(unittest.TestCase):
           self.__make_routine,"""
             rest=4
             bad setting=87
+          """,[self.__simple_guide()]
+        )
+        self.assertRaisesRegexp(exceptions.ParseError,
+          "too many commas",
+          self.__make_routine,"""
+            rest=245
+            read_delay=2495
+            exercise1,32,51,15,15,extra_parm
           """,[self.__simple_guide()]
         )
 

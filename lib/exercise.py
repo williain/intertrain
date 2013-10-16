@@ -1,20 +1,19 @@
 #!/usr/bin/python3
 
-import countdown,exceptions
-import time, logging, subprocess, sys, unittest
+import countdown,exceptions,sounder
+import time, logging, sys, unittest
 
 class Exercise(object):
     def __init__(self, name, desc="", tips=[]):
         """Create a named exercise object"""
-        self.lastsound=None
-
         self.name=name
         self.desc=desc
         if not hasattr(tips,'append'):
             # Ensure tips is a list
             tips=[str(tips)]
         self.tips=tips
-        self.messagelogger=logging.getLogger('exercise')
+        self.messagelogger=logging.getLogger(__name__)
+        self.sounder=sounder.Sounder()
 
     def prep(self, duration, rest=5, read_delay=5):
         """Set the exercise durations.  Arguments:
@@ -65,7 +64,7 @@ class Exercise(object):
 
     def session_start(self):
         """Called by self.reading once the read delay is over"""
-        self.__play_sound('sounds/boop.ogg')
+        self.sounder.play('sounds/boop.ogg')
         self.messagelogger.info("Start exercise")
         self.countdown.start()
 
@@ -83,52 +82,47 @@ class Exercise(object):
         if time_left<10:
             self.messagelogger.debug(str(time_left)+"...")
         if time_left<5 and time_left>0:
-            self.__play_sound('sounds/beep.ogg')
+            self.sounder.play('sounds/beep.ogg')
 
     def finish(self):
         """Used by self.countdown to complete the exercise"""
         if self.messagelogger.isEnabledFor(logging.INFO):
             sys.stdout.write("\n")
         self.messagelogger.info("Finish (exercise "+self.name+"): "+str(self.rest)+"s rest")
-        self.__play_sound('sounds/boop.ogg')
+        self.sounder.play('sounds/boop.ogg')
         rest_start=time.time()
         while time.time()-rest_start < self.rest:
             time.sleep(0.2)
         self.messagelogger.info("-"*70)
 
-    def __clear_sound(self):
-        if self.lastsound != None:
-            self.lastsound.terminate()
-            self.lastsound=None
-
-    def __play_sound(self, soundfile):
-        """Play a soundfile and return immediately"""
-        self.__clear_sound()
-        # TODO Not platform independent
-        self.lastsound=subprocess.Popen(['mplayer', soundfile], stdout=open('/dev/null','w'), stderr=open('/dev/null','w'))
-
     def __del__(self):
-        self.__clear_sound()
+        self.sounder.stop()
+
+import sounderinterface 
 
 class TestExercise(unittest.TestCase):
+    mock=True
+    quiet=True
     time=0
 
     class MockCountdown(countdown.Countdown):
         def start(self):
-            # Don't actually countdown - just add the time
-            TestExercise.time+=self.duration
-            self.func_finish()
+            if TestExercise.mock:
+                # Don't actually countdown - just add the time
+                TestExercise.time+=self.duration
+                self.func_finish()
+            else:
+                super().start()
 
-    class QuietExercise(Exercise):
-        # A nasty hack to override a private method...
-        def _Exercise__play_sound(self, soundfile):
-            # Shut up!
-            pass
+    class MockExercise(Exercise):
+        def __init__(self,*args):
+            super().__init__(*args)
+            if TestExercise.quiet:
+                self.sounder=sounderinterface.QuietSounder()
 
-    class MockExercise(QuietExercise):
         def start(self):
             TestExercise.time=0
-            # Fake the countdown timers to run this exercise really quickly
+            # Plug in our MockCountdown object, to allow mocking
             self.reading=TestExercise.MockCountdown(
               self.reading.duration, self.reading.func_finish
             )
@@ -140,14 +134,11 @@ class TestExercise(unittest.TestCase):
             super().start()
 
         def finish(self):
-            TestExercise.time+=self.rest
+            if TestExercise.mock:
+                TestExercise.time+=self.rest
+            else:
+                super().finish()
             
-    def setUp(self):
-        self.mock=True
-        #self.mock=False
-        self.quiet=True
-        #self.quiet=False
-
     def test_init_args(self):
         exercise=Exercise("TEST_ARGS_POS", "desc", "tips")
         self.assertEqual(exercise.desc,"desc")
@@ -201,7 +192,7 @@ class TestExercise(unittest.TestCase):
 
     def test_start(self):
         # Test default arguments
-        exercise=self.__test_exercise("TEST_START_DEFAULT")
+        exercise=TestExercise.MockExercise("TEST_START_DEFAULT")
         exercise.prep(1)
         duration=self.__timed_run(exercise)
         self.__assert_time(duration, 11)
@@ -209,26 +200,17 @@ class TestExercise(unittest.TestCase):
     
     def test_start_override(self):
         # Test overriding defaults
-        exercise=self.__test_exercise("TEST_OVERRIDE1")
+        exercise=TestExercise.MockExercise("TEST_OVERRIDE1")
         exercise.prep(4, 1, 0)
         duration=self.__timed_run(exercise)
         self.__assert_time(duration,5)
         del exercise
 
-        exercise=self.__test_exercise("TEST_OVERRIDE2")
+        exercise=TestExercise.MockExercise("TEST_OVERRIDE2")
         exercise.prep(2, 0, read_delay=2)
         duration=self.__timed_run(exercise)
         self.__assert_time(duration,4)
         del exercise
-
-    def __test_exercise(self,name):
-        if self.mock:
-            exercise=TestExercise.MockExercise(name)
-        elif self.quiet:
-            exercise=TestExercise.QuietExercise(name)
-        else:
-            exercise=Exercise(name)
-        return exercise
 
     def __timed_run(self,exercise):
         time_start=time.time()
@@ -245,16 +227,16 @@ class TestExercise(unittest.TestCase):
             self.assertLess(abs(time-expected_time),0.2)
 
     def test_get_total_duration(self):
-        exercise=self.__test_exercise("TEST_TOTAL_DUR")
+        exercise=Exercise("TEST_TOTAL_DUR")
         exercise.prep(86)
         self.assertEqual(exercise.get_total_duration(),96)
         del exercise
-        exercise=self.__test_exercise("TEST_TOTAL_DUR_OVERRIDE")
+        exercise=Exercise("TEST_TOTAL_DUR_OVERRIDE")
         exercise.prep(35,rest=32,read_delay=53)
         self.assertEqual(exercise.get_total_duration(),120)
 
 if __name__=='__main__':
     logging.basicConfig(format='.')
     logging.getLogger('countdown').setLevel(logging.ERROR)
-    logging.getLogger('exercise').setLevel(logging.ERROR)
+    logging.getLogger(__name__).setLevel(logging.ERROR)
     unittest.main()

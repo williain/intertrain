@@ -3,11 +3,10 @@
 import sys,logging
 
 sys.path.append('./lib')
-import exercise
+import exercise,routine,guide
 
 standard_length=60
 standard_rest=10
-loglevel=logging.INFO
 
 description="Kettle bell upper body exercises, level 1"
 
@@ -19,6 +18,8 @@ exercises=(("Clean to right shoulder", None, None),
         ("Left arm overhead extension with opposite lunge", None, None),
         ("Kettle bell swing", None, 0))
 
+guide=guide.Guide()
+guide.load_io("
 # Exercise 1: Clean to right shoulder
 # Start in a standing crouch with the kettle bell suspended between the legs
 # Lift the kettlebell to the shoulder as you breathe in, and return it to
@@ -55,6 +56,8 @@ exercises=(("Clean to right shoulder", None, None),
 # apex
 
 logging.basicConfig(format='%(message)s')
+logging.getLogger('exercise').setLevel(logging.INFO)
+
 
 exercise_objects=[]
 duration=0
@@ -66,10 +69,10 @@ for e in exercises:
                 length=standard_length
         if rest == None:
                 rest=standard_rest
-        ex=exercise.Exercise(e[0], loglevel=loglevel)
+        ex=exercise.Exercise(e[0])
         ex.prep(length,rest)
         exercise_objects.append(ex)
-        duration+=length+rest+ex.read_delay
+        duration+=ex.get_total_duration()
 
 duration_string=str(int(duration/60))+"'{0:02d}\"".format(duration%60)
 
