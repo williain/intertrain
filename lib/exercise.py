@@ -4,7 +4,7 @@ import countdown,exceptions,sounder
 import time, logging, sys, unittest
 
 class Exercise(object):
-    def __init__(self, name, desc="", tips=[]):
+    def __init__(self, name="", desc="", tips=[]):
         """Create a named exercise object"""
         self.name=name
         self.desc=desc
@@ -44,7 +44,7 @@ class Exercise(object):
         self.rest=rest
         self.read_delay=read_delay
 
-    def get_total_duration(self):
+    def get_total_time(self):
         return self.read_delay+self.duration+self.rest
 
     def start(self):
@@ -226,14 +226,14 @@ class TestExercise(unittest.TestCase):
         else:
             self.assertLess(abs(time-expected_time),0.2)
 
-    def test_get_total_duration(self):
+    def test_get_total_time(self):
         exercise=Exercise("TEST_TOTAL_DUR")
         exercise.prep(86)
-        self.assertEqual(exercise.get_total_duration(),96)
+        self.assertEqual(exercise.get_total_time(),96)
         del exercise
         exercise=Exercise("TEST_TOTAL_DUR_OVERRIDE")
         exercise.prep(35,rest=32,read_delay=53)
-        self.assertEqual(exercise.get_total_duration(),120)
+        self.assertEqual(exercise.get_total_time(),120)
 
 if __name__=='__main__':
     logging.basicConfig(format='.')

@@ -1,86 +1,101 @@
 #!/usr/bin/python3
 
-import time, os, logging
+import time, os, logging, unittest
 
 class AbortCountdownException(Exception):
-	pass
+    pass
 
 class Countdown(object):
-	def __init__(self, duration, finish_func, tick_func = False):
-		self.logger = logging.getLogger(__name__)
-		self.duration = duration
-		self.func_tick = tick_func
-		self.func_finish = finish_func
-		self.logger.info("Countdown object created, duration %d",duration)
+    def __init__(self, duration, finish_func, tick_func = False,interval=1):
+        self.logger = logging.getLogger(__name__)
+        self.duration = duration
+        self.func_tick = tick_func
+        self.func_finish = finish_func
+        self.interval = interval
+        self.logger.info("Countdown object created, duration {0}".format(
+          duration
+        ))
 
-	def start(self):
-		self.logger.info("Countdown started, duration %d",self.duration)
-		self.started = time.time()
+    def start(self):
+        self.logger.info("Countdown started, duration {0}".format(
+          self.duration
+        ))
+        self.started = time.time()
 
-		clock = 0
-		try:
-			while clock < int(self.duration):
-				while time.time() < self.started + clock + 1:
-					time.sleep(0.1)
-				clock = int(time.time()-self.started+0.5)
-				self.logger.debug("Tick %d",clock)
-				if self.func_tick:
-					self.func_tick(clock)
+        clock = 0
+        try:
+            while clock < int(self.duration)-self.interval/2:
+                while time.time() < self.started + clock + 1:
+                    time.sleep(self.interval/10)
+                clock = int(time.time()-self.started)
+                self.logger.debug("Tick {0}".format(clock))
+                if self.func_tick:
+                    self.func_tick(clock)
 
-			if int(self.duration) < self.duration:
-				self.logger.debug("Counting down for remaining subsecond")
-				while time.time() < self.started + self.duration:
-					time.sleep(0.05)
-			self.logger.info("Countdown finished (duration %d)",self.duration)
-			self.func_finish()
-		except AbortCountdownException as e:
-			# Tick function aborted the countdown.  Return now, do not pass go
-			self.logger.info("Countdown aborted (was duration %d)",self.duration)
+            if int(self.duration) < self.duration:
+                self.logger.debug("Counting down for remaining subsecond")
+                while time.time() < self.started + self.duration:
+                    time.sleep(self.interval/20)
+            self.logger.info("Countdown finished (duration {0})".format(
+              self.duration
+            ))
+            self.func_finish()
+        except AbortCountdownException as e:
+            # Tick function aborted the countdown.  Return now, do not pass go
+            self.logger.info("Countdown aborted (was duration {0})".format(
+              self.duration
+            ))
 
-def Test():
-	logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s')
-	logging.getLogger(__name__).setLevel(logging.INFO)
-	ok = False
-	def finish():
-		nonlocal ok
-		ok = True
+class TestCountdown(unittest.TestCase):
+    def test_start(self):
+        finished = False
+        def finish():
+            nonlocal finished
+            finished = True
 
-	timer=Countdown(5, finish)
+        dur=0.8
+        interval=0.2
+        timer=Countdown(dur, finish, interval=interval)
 
-	started=time.time()
-	timer.start()
-	duration=time.time()-started
+        started=time.time()
+        timer.start()
+        duration=time.time()-started
 
-	if ok == True:
-		print("TEST1 OK")
-	else:
-		print("TEST1 FAILED: Did not finish")
+        self.assertTrue(finished)
+        self.assertLess(abs(duration-dur),interval/2)
 
-	if abs(duration-5)>0.1:
-		print("TEST2 failed: Expected duration of 5, got",duration)
-	else:
-		print("TEST2 OK: Expected duration of 5, got",duration)
+        finished = False
+        def tick(t):
+            nonlocal abort
+            if t>=abort: raise AbortCountdownException("Test stop")
+        def finish():
+            nonlocal finished
+            finished = True
+        dur=1.5
+        abort=1
+        interval=0.5
+        timer=Countdown(dur, finish, tick, interval=interval)
+        
+        started=time.time()
+        self.assertRaises(AbortCountdownException, timer.start())
+        duration=time.time()-started
 
-	ok = True
-	def tick(t):
-		if t>=2: raise AbortCountdownException("Test stop")
-	def finish():
-		Test.ok = False
-	timer=Countdown(3, finish, tick)
-	
-	started=time.time()
-	timer.start()
-	duration=time.time()-started
+        self.assertFalse(finished)
+        self.assertLess(abs(duration-abort),interval/2)
+        
+        dur=0.8
+        abort=0.8
+        interval=0.1
+        finished=False
+        timer=Countdown(dur, finish, tick, interval=interval)
+        started=time.time()
+        timer.start()
+        duration=time.time()-started
 
-	if ok == True:
-		print("TEST3 OK")
-	else:
-		print("TEST3 FAILED: Excpected abort, but finished instead")
-
-	if abs(duration-2)>0.1:
-		print("TEST4 FAIL: Expected duration of 2, got",duration)
-	else:
-		print("TEST4 OK: Expected duration of 2, got",duration)
+        self.assertTrue(finished)
+        self.assertLess(abs(duration-dur),interval/2)
 
 if __name__=="__main__":
-    Test()
+#    logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s')
+    logging.getLogger(__name__).setLevel(logging.ERROR)
+    unittest.main()

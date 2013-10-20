@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-import os,unittest,sys
+import os,unittest,sys,logging
 import exceptions, sounderinterface, plat
 
 class Sounder(sounderinterface.SounderInterface):
@@ -30,5 +30,11 @@ class TestSounder(unittest.TestCase):
 
         self.assertEquals(type(s),TestSounder.DummySounder)
 
+    def test_api(self):
+        s=Sounder()
+        self.assertTrue(hasattr(s,'play'))
+        self.assertTrue(hasattr(s,'stop'))
+
 if __name__=="__main__":
+    logging.getLogger('sounderinterface').setLevel(logging.ERROR)
     unittest.main()

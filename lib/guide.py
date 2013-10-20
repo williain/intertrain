@@ -139,7 +139,9 @@ class GuideBook(object):
             if exercise_id in guide:
                 return guide.get_exercise(exercise_id)
         raise KeyError(
-          'Exercise {0} not found in any current guide'.format(exercise_id)
+          'Exercise {0} not found in any current guide'.format(
+            repr(exercise_id)
+          )
         )
 
 class TestGuide(unittest.TestCase):
@@ -197,7 +199,7 @@ test_exercise:
         self.g2=Guide()
         self.g2.load_io(stream)
 
-    def test_ids(self):
+    def test_get_exercise_ids(self):
         self.assertEquals(self.g.get_exercise_ids(),
           set(['kettle_clean_left',
             'kettle_clean_right',
@@ -280,14 +282,6 @@ newlines are bad too":
         self.assertEquals(b.get_exercise('test_exercise_2').name,
           'Test exercise 2'
         )
-
-    def runTest(self):
-        self.test_ids()
-        self.test_bad_id()
-        self.test_exercise_1()
-        self.test_exercise_2()
-        self.test_eq()
-        self.test_book()
 
 if __name__=="__main__":
     unittest.main()

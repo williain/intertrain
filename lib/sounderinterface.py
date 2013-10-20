@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+import logging
 import exceptions
 
 def singleton(typ):
@@ -14,6 +15,7 @@ def singleton(typ):
 class Sounders(object):
     def __init__(self):
         self.sounders={}
+        self.logger=logging.getLogger(__name__)
 
     def register(self,plat,typ):
         """
@@ -26,8 +28,11 @@ class Sounders(object):
         if plat in self.sounders:
             return self.sounders[plat]()
         else:
-            #TODO Log, not print
-            print("Sorry, sounds on platform '{0}' are not supported".format(plat))
+            self.logger.info(
+              "Sorry, sounds on platform {0} are not supported".format(
+                repr(plat)
+              )
+            )
             return QuietSounder()
 
 def register(cls):
